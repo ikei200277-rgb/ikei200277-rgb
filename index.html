@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#111418">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="メモ帳">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<title>メモ帳</title>
+<style>
+:root{
+  --bg:#111418; --panel:#1b2027; --panel2:#242b34; --text:#e8ecf1; --sub:#8b96a5;
+  --accent:#4da3ff; --danger:#ff6b6b; --ok:#3ecf8e; --star:#ffc233; --border:#2c343f; --kbh:0px;
+}
+@media (prefers-color-scheme: light){
+  :root{ --bg:#f3f5f8; --panel:#ffffff; --panel2:#e9edf2; --text:#1a2029; --sub:#64707f; --accent:#1a73e8; --danger:#d93025; --ok:#188a5b; --star:#f2a900; --border:#d9dfe7; }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  -webkit-text-size-adjust:100%;overscroll-behavior:none;-webkit-touch-callout:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input,textarea{font-family:inherit}
+.view{position:fixed;inset:0;display:none;flex-direction:column;background:var(--bg)}
+.view.active{display:flex}
+header.bar{padding:calc(env(safe-area-inset-top) + 8px) 12px 8px;display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--border);background:var(--bg);min-height:56px}
+header.bar h1{font-size:19px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{min-width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0 10px;color:var(--accent);font-size:16px;white-space:nowrap}
+.iconbtn.danger{color:var(--danger)}
+.iconbtn[hidden]{display:none}
+.crumb{padding:8px 14px 2px;font-size:13px;color:var(--sub);display:flex;gap:4px;flex-wrap:wrap}
+.crumb button{color:var(--sub);padding:2px 2px}
+.crumb button.cur{color:var(--accent);font-weight:600}
+.search{margin:8px 14px 4px;display:flex;align-items:center;background:var(--panel);border-radius:12px;padding:0 12px;border:1px solid var(--border)}
+.search input{flex:1;background:none;border:0;outline:0;color:var(--text);font-size:16px;padding:11px 0;min-width:0}
+.search .clr{color:var(--sub);padding:6px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:6px 14px 8px;scrollbar-width:none;flex:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;background:var(--panel2);color:var(--sub);border-radius:16px;padding:6px 12px;font-size:14px;white-space:nowrap}
+.chip.on{background:var(--accent);color:#fff}
+.chip.tag{color:var(--accent)}
+.chip.tag .x{margin-left:6px;opacity:.7}
+.scroller{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#list{padding:4px 14px calc(110px + env(safe-area-inset-bottom))}
+body.kbopen .scroller{padding-bottom:calc(var(--kbh) + 24px) !important}
+.lab{font-size:12px;color:var(--sub);margin:12px 2px 6px}
+.folder,.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;user-select:none;-webkit-user-select:none}
+.folder{display:flex;align-items:center;gap:12px;padding:13px 14px;font-size:16px}
+.folder .ic{font-size:22px}
+.folder .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.folder .c{color:var(--sub);font-size:13px}
+.card{padding:12px 14px}
+.card.done{opacity:.62}
+.card .top{display:flex;align-items:center;gap:8px}
+.card .t{font-weight:600;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.card.done .t{text-decoration:line-through}
+.badge-done{flex:none;background:var(--ok);color:#fff;border-radius:10px;padding:2px 9px;font-size:12px;font-weight:700}
+.card .b{color:var(--sub);font-size:14px;margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+.card .meta{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap}
+.card .tags span{color:var(--accent);font-size:13px;margin-right:6px}
+.card .path{color:var(--sub);font-size:12px}
+.card .d{color:var(--sub);font-size:12px}
+.stars{display:inline-block;font-size:15px;letter-spacing:1px;line-height:1;background:linear-gradient(90deg,var(--star) var(--v,0%),var(--panel2) var(--v,0%));-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+.rate-num{font-size:13px;color:var(--star);font-weight:700}
+.thr{display:flex;gap:6px;margin-top:8px}
+.thr .th{width:56px;height:56px;border-radius:9px;background:var(--panel2);position:relative;overflow:hidden;flex:none}
+.thr .th img{width:100%;height:100%;object-fit:cover;display:block}
+.thr .th.v::after{content:"▶";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;text-shadow:0 1px 5px #000a}
+.thr .more{width:56px;height:56px;border-radius:9px;background:var(--panel2);color:var(--sub);display:flex;align-items:center;justify-content:center;font-size:13px}
+.empty{color:var(--sub);text-align:center;margin-top:60px;line-height:1.9}
+.fab{position:fixed;right:20px;bottom:calc(22px + env(safe-area-inset-bottom));width:58px;height:58px;border-radius:29px;
+  background:var(--accent);color:#fff;font-size:30px;box-shadow:0 6px 18px #0006;display:flex;align-items:center;justify-content:center;z-index:5}
+#fabMenu{position:fixed;right:20px;bottom:calc(90px + env(safe-area-inset-bottom));background:var(--panel2);border-radius:14px;box-shadow:0 8px 24px #0008;z-index:6;display:none;overflow:hidden}
+#fabMenu.on{display:block}
+#fabMenu button{display:block;width:100%;text-align:left;padding:14px 18px;font-size:16px;white-space:nowrap}
+#fabMenu button+button{border-top:1px solid var(--border)}
+/* editor */
+#editor .body{padding:12px 14px calc(30px + env(safe-area-inset-bottom))}
+#title{width:100%;background:none;border:0;outline:0;color:var(--text);font-size:22px;font-weight:700;padding:6px 0}
+#text{width:100%;min-height:160px;background:none;border:0;outline:0;resize:none;color:var(--text);font-size:17px;line-height:1.6;padding:6px 0;display:block;overflow:hidden}
+.sec{margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.sec h3{margin:0 0 8px;font-size:13px;color:var(--sub);font-weight:600}
+.donebtn{background:var(--panel2);color:var(--sub);border-radius:18px;padding:8px 14px;font-size:14px;font-weight:600;white-space:nowrap}
+.donebtn.on{background:var(--ok);color:#fff}
+.rate{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rate .bigstars{font-size:34px;letter-spacing:3px;touch-action:none;user-select:none;-webkit-user-select:none;line-height:1.1}
+.rate .num{font-size:22px;font-weight:700;color:var(--star);min-width:42px;text-align:right}
+.rate .num.none{color:var(--sub);font-size:15px;font-weight:400}
+.rate-ctl{display:flex;align-items:center;gap:8px;margin-top:8px}
+.rate-ctl input[type=range]{flex:1;accent-color:var(--star)}
+.rate-ctl button{width:38px;height:38px;border-radius:19px;background:var(--panel2);font-size:20px;line-height:1}
+.rate-ctl button.txt{width:auto;padding:0 12px;font-size:13px;color:var(--sub)}
+.loc{width:100%;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:11px 12px;display:flex;justify-content:space-between;font-size:15px;text-align:left}
+.loc b{color:var(--accent);font-weight:600}
+.taginput{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:8px 10px}
+.taginput input{flex:1;min-width:120px;background:none;border:0;outline:0;color:var(--text);font-size:16px;padding:4px 0}
+.suggest{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.media{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.media .m{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--panel2)}
+.media .m img{width:100%;height:100%;object-fit:cover;display:block}
+.media .m .play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:30px;color:#fff;text-shadow:0 1px 6px #000a;pointer-events:none}
+.media .m .del{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:13px;background:#000a;color:#fff;font-size:15px}
+.addmedia{margin-top:10px;width:100%;padding:12px;border-radius:12px;background:var(--panel);border:1px dashed var(--accent);color:var(--accent);font-size:16px}
+.status{font-size:12px;color:var(--sub);flex:none}
+/* settings */
+#settings .body{padding:6px 14px calc(30px + env(safe-area-inset-bottom))}
+.set{background:var(--panel);border:1px solid var(--border);border-radius:14px;margin:12px 0;padding:14px}
+.set h4{margin:0 0 6px;font-size:15px}
+.set p{margin:4px 0 0;color:var(--sub);font-size:13px;line-height:1.7}
+.set .bar2{height:6px;background:var(--panel2);border-radius:3px;margin-top:10px;overflow:hidden}
+.set .bar2 i{display:block;height:6px;background:var(--accent);width:0}
+.btn{display:block;width:100%;margin-top:10px;background:var(--accent);color:#fff;border-radius:12px;padding:13px;text-align:center;font-size:16px;font-weight:600}
+.btn.o{background:var(--panel2);color:var(--text);font-weight:400}
+.btn.dg{background:var(--panel2);color:var(--danger);font-weight:400}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sw{position:relative;width:50px;height:30px;flex:none}
+.sw input{opacity:0;position:absolute;inset:0;width:100%;height:100%;margin:0}
+.sw span{position:absolute;inset:0;background:var(--panel2);border-radius:15px;transition:.2s;pointer-events:none}
+.sw span::after{content:"";position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:12px;background:#fff;transition:.2s}
+.sw input:checked+span{background:var(--accent)}
+.sw input:checked+span::after{left:23px}
+/* overlays */
+#viewer{position:fixed;inset:0;background:#000e;z-index:90;display:none;align-items:center;justify-content:center}
+#viewer.on{display:flex}
+#viewer img,#viewer video{max-width:100%;max-height:100%}
+#viewer .close{position:absolute;top:calc(env(safe-area-inset-top) + 10px);right:14px;width:40px;height:40px;border-radius:20px;background:#fff3;color:#fff;font-size:20px}
+.sheet{position:fixed;inset:0;background:#0008;z-index:60;display:none;align-items:flex-end}
+.sheet.on{display:flex}
+.sheet .in{width:100%;background:var(--panel);border-radius:18px 18px 0 0;padding:10px 14px calc(18px + env(safe-area-inset-bottom));max-height:80vh;overflow-y:auto}
+.sheet .in h5{margin:8px 6px 6px;font-size:13px;color:var(--sub);font-weight:600}
+.sheet .in button{display:block;width:100%;text-align:left;padding:15px 8px;font-size:17px;border-bottom:1px solid var(--border)}
+.sheet .in button:last-child{border-bottom:0}
+.sheet .in button.dg{color:var(--danger)}
+.modal{position:fixed;inset:0;background:#000a;z-index:65;display:none;align-items:center;justify-content:center;padding:20px}
+.modal.on{display:flex}
+body.kbopen .modal{align-items:flex-start;padding-top:calc(env(safe-area-inset-top) + 60px)}
+.modal .box{width:100%;max-width:420px;background:var(--panel);border-radius:16px;padding:16px}
+.modal h4{margin:0 0 10px;font-size:17px}
+.modal input{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:11px 12px;color:var(--text);font-size:17px;outline:0}
+.modal .acts{display:flex;gap:10px;margin-top:14px}
+.modal .acts button{flex:1;padding:12px;border-radius:10px;background:var(--panel2);font-size:16px}
+.modal .acts button.pri{background:var(--accent);color:#fff;font-weight:600}
+#picker .box{padding:12px 0 14px;display:flex;flex-direction:column;max-height:82vh}
+#picker h4{padding:0 16px}
+#pickList{overflow-y:auto;flex:1;margin:0 8px}
+#pickList .it{display:flex;align-items:center;gap:8px;padding:11px 8px;border-radius:10px;font-size:16px}
+#pickList .it.sel{background:var(--accent);color:#fff}
+#pickList .it.dis{opacity:.35;pointer-events:none}
+#picker .acts{padding:0 16px}
+#picker .newf{margin:8px 16px 0;color:var(--accent);text-align:left;font-size:15px;padding:8px 0}
+#toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#000c;color:#fff;
+  padding:9px 16px;border-radius:18px;font-size:14px;z-index:95;display:none;max-width:86%;text-align:center}
+#busy{position:fixed;inset:0;background:#000a;z-index:99;display:none;align-items:center;justify-content:center;color:#fff;font-size:16px;text-align:center;padding:20px;line-height:1.8}
+#busy.on{display:flex}
+/* keyboard */
+#kb{position:fixed;left:0;right:0;bottom:0;z-index:80;background:var(--panel);border-top:1px solid var(--border);padding:0 4px calc(6px + env(safe-area-inset-bottom));user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.kb-bar{height:42px;display:flex;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:none;padding:0 4px;white-space:nowrap}
+.kb-bar::-webkit-scrollbar{display:none}
+.kb-hint{color:var(--sub);font-size:12px;padding:0 6px}
+.cand{flex:none;padding:7px 12px;border-radius:8px;font-size:17px;color:var(--text)}
+.cand.on{background:var(--accent);color:#fff}
+.krow{display:flex;gap:5px;margin-bottom:5px}
+.key{flex:1;height:52px;border-radius:8px;background:var(--panel2);display:flex;align-items:center;justify-content:center;font-size:19px;touch-action:none;position:relative}
+.key.fn{font-size:14px;color:var(--sub)}
+.key.fn.on{background:var(--accent);color:#fff}
+.key.accent{background:var(--accent);color:#fff;font-weight:600}
+.key.active{filter:brightness(1.35)}
+.kb-pop{position:absolute;display:none;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);pointer-events:none;z-index:2}
+.kb-pop .pc{display:flex;align-items:center;justify-content:center;background:var(--panel2);color:var(--text);font-size:22px;border:1px solid var(--border)}
+.kb-pop .pc.c{background:var(--panel)}
+.kb-pop .pc.sel{background:var(--accent);color:#fff}
+</style>
+</head>
+<body>
+
+<!-- ホーム／フォルダ -->
+<section id="home" class="view active">
+  <header class="bar">
+    <button class="iconbtn" id="homeBack" hidden>‹ 戻る</button>
+    <h1 id="homeTitle">メモ帳</h1>
+    <button class="iconbtn" id="homeMenu" aria-label="メニュー">⚙</button>
+  </header>
+  <div class="crumb" id="crumb"></div>
+  <div class="search"><span>🔍</span><input id="q" data-kb data-enter="blur" type="text" placeholder="全体を検索（タグ・本文・タイトル）" autocomplete="off" autocapitalize="off"><button class="clr" id="qClr" hidden>✕</button></div>
+  <div class="chips" id="chips"></div>
+  <div id="list" class="scroller"></div>
+  <button class="fab" id="fab" aria-label="追加">＋</button>
+  <div id="fabMenu"><button id="fabMemo">📝 新規メモ</button><button id="fabFolder">📁 新規フォルダ</button></div>
+</section>
+
+<!-- 編集 -->
+<section id="editor" class="view">
+  <header class="bar">
+    <button class="iconbtn" id="backBtn">‹ 戻る</button>
+    <span class="status" id="status"></span>
+    <span style="flex:1"></span>
+    <button class="donebtn" id="doneBtn">✓ 完了にする</button>
+    <button class="iconbtn danger" id="delBtn">削除</button>
+  </header>
+  <div class="body scroller">
+    <input id="title" data-kb data-enter="next" placeholder="タイトル" autocomplete="off" autocapitalize="off">
+    <textarea id="text" data-kb placeholder="メモを入力" autocomplete="off" autocapitalize="off"></textarea>
+
+    <div class="sec">
+      <h3>評価（0.1刻み）</h3>
+      <div class="rate"><div class="stars bigstars" id="bigStars">★★★★★</div><div class="num none" id="rateNum">未評価</div></div>
+      <div class="rate-ctl">
+        <button id="rateMinus" aria-label="0.1下げる">−</button>
+        <input type="range" id="rateRange" min="0" max="5" step="0.1" value="0">
+        <button id="ratePlus" aria-label="0.1上げる">＋</button>
+        <button class="txt" id="rateClr">クリア</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>保存先フォルダ</h3>
+      <button class="loc" id="locBtn"><span id="locText">📁 —</span><span style="color:var(--accent)">変更 ›</span></button>
+    </div>
+
+    <div class="sec">
+      <h3>タグ</h3>
+      <div class="taginput" id="tagBox">
+        <input id="tagIn" data-kb data-enter="tag" placeholder="＃タグを入力して改行" autocomplete="off" autocapitalize="off">
+      </div>
+      <div class="suggest" id="suggest"></div>
+    </div>
+
+    <div class="sec">
+      <h3>画像・動画</h3>
+      <div class="media" id="media"></div>
+      <button class="addmedia" id="addMedia">＋ 画像・動画を追加</button>
+      <input type="file" id="file" accept="image/*,video/*" multiple hidden>
+    </div>
+  </div>
+</section>
+
+<!-- 設定 -->
+<section id="settings" class="view">
+  <header class="bar">
+    <button class="iconbtn" id="setBack">‹ 戻る</button>
+    <h1 style="text-align:center">設定・バックアップ</h1>
+    <span style="width:60px"></span>
+  </header>
+  <div class="body scroller">
+    <div class="set">
+      <h4>📱 保存場所：このiPhone内</h4>
+      <p>メモ・画像・動画はこの端末のアプリ内だけに保存され、外部サーバーには送信されません。</p>
+      <div class="bar2"><i id="usageBar"></i></div>
+      <p id="usageText"></p>
+    </div>
+    <div class="set">
+      <h4>機種変更・引き継ぎ</h4>
+      <p>全フォルダ・メモ・画像・動画・学習データを1つのZIPファイルに書き出します。新しいiPhoneでこのアプリを開き、「読み込む」でそのファイルを選ぶと復元されます。書き出したファイルは「ファイル」アプリ・iCloud Drive・AirDropなどで受け渡してください。</p>
+      <button class="btn" id="exportBtn">バックアップを書き出す</button>
+      <button class="btn o" id="importBtn">バックアップを読み込む</button>
+      <input type="file" id="importFile" accept=".zip,application/zip" hidden>
+      <p>※ iPhoneのブラウザ領域は、長期間アプリを開かないと消去されることがあります。定期的な書き出しをおすすめします。</p>
+    </div>
+    <div class="set">
+      <div class="row"><h4 style="margin:0">アプリ内キーボードを使う</h4><label class="sw"><input type="checkbox" id="kbSwitch"><span></span></label></div>
+      <p>オンにすると、標準キーボードの代わりに専用キーボードを使います（フリック入力・かな漢字変換）。他のアプリには表示されず、入力した単語は標準キーボードに学習されません。</p>
+      <p id="dictState"></p>
+      <button class="btn dg" id="resetLearn">変換の学習データをリセット</button>
+    </div>
+    <div class="set">
+      <h4>変換辞書について</h4>
+      <p>かな漢字変換の辞書は、Googleが公開するMozcのオープンソース辞書（data/LICENSE-dictionary.txt に権利表記）を加工して使用しています。</p>
+    </div>
+  </div>
+</section>
+
+<div id="kb"></div>
+<div id="viewer"><button class="close" id="vClose">✕</button><div id="vBody"></div></div>
+<div class="sheet" id="sheet"><div class="in" id="sheetIn"></div></div>
+<div class="modal" id="askModal"><div class="box"><h4 id="askTitle"></h4><input id="askInput" data-kb data-enter="submit" type="text" autocomplete="off" autocapitalize="off"><div class="acts"><button id="askCancel">キャンセル</button><button class="pri" id="askOk">決定</button></div></div></div>
+<div class="modal" id="picker"><div class="box"><h4 id="pickTitle">保存先を選ぶ</h4><div id="pickList"></div><button class="newf" id="pickNew">＋ ここに新しいフォルダを作る</button><div class="acts"><button id="pickCancel">キャンセル</button><button class="pri" id="pickOk">決定</button></div></div></div>
+<div id="busy"></div>
+<div id="toast"></div>
+
+<script src="ime.js"></script>
+<script src="kb.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
