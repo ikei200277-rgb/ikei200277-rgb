@@ -179,12 +179,16 @@
   function ensureVisible() {
     if (!target || kb.style.display === 'none') return;
     const sc = target.closest('.scroller'); if (!sc) return;
-    let y = target.getBoundingClientRect().top;
-    if (target.tagName === 'TEXTAREA') y += caretTop(target) - target.scrollTop;
-    const lineH = 34, kbTop = window.innerHeight - kbHeight();
-    if (y + lineH > kbTop - 8) sc.scrollTop += y + lineH - (kbTop - 8);
-    const sTop = sc.getBoundingClientRect().top;
-    if (y < sTop + 8) sc.scrollTop -= (sTop + 8 - y);
+    const r = target.getBoundingClientRect();
+    let top = r.top, bottom = r.bottom;
+    if (target.tagName === 'TEXTAREA') {
+      const lh = parseFloat(getComputedStyle(target).lineHeight) || 28;
+      top = r.top + caretTop(target) - target.scrollTop; bottom = top + lh;
+    }
+    const visTop = sc.getBoundingClientRect().top + 8;
+    const visBottom = window.innerHeight - kbHeight() - 8;
+    if (bottom > visBottom) sc.scrollTop += bottom - visBottom;
+    else if (top < visTop) sc.scrollTop -= visTop - top;
   }
   function caretTop(ta) {
     const cs0 = getComputedStyle(ta);
@@ -217,29 +221,44 @@
     if (o.fn) press(b, o.fn, o.repeat);
     return b;
   }
+  function flickDir(dx, dy) {
+    const dist = Math.hypot(dx, dy);
+    if (dist < 18) return 0;
+    // 親指は上下に弾くと斜めに流れやすいので、上下の判定を広めにする
+    if (Math.abs(dy) > Math.abs(dx) * 0.7) return dy < 0 ? 2 : 4;
+    return dx < 0 ? 1 : 3;
+  }
   function flickKey(label) {
     const set = FLICK[label];
     const b = mk('key flick', label);
     let st = null;
     b.addEventListener('pointerdown', e => {
-      e.preventDefault(); b.setPointerCapture(e.pointerId);
-      st = { x: e.clientX, y: e.clientY, dir: 0 };
+      e.preventDefault();
+      try { b.setPointerCapture(e.pointerId); } catch (err) { }
+      st = { id: e.pointerId, x: e.clientX, y: e.clientY, dir: 0, bx: 0, by: 0, bd: 0 };
       showPop(b, set, 0);
     });
     b.addEventListener('pointermove', e => {
-      if (!st) return;
-      const dx = e.clientX - st.x, dy = e.clientY - st.y;
-      let d = 0;
-      if (Math.hypot(dx, dy) > 24) d = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 1 : 3) : (dy < 0 ? 2 : 4);
-      if (d !== st.dir) { st.dir = d; updatePop(d); }
+      if (!st || e.pointerId !== st.id) return;
+      const dx = e.clientX - st.x, dy = e.clientY - st.y, d = Math.hypot(dx, dy);
+      if (d > st.bd) { st.bd = d; st.bx = dx; st.by = dy; }       // 最も遠くまで動いた点を記録
+      const nd = flickDir(dx, dy);
+      if (nd !== st.dir) { st.dir = nd; updatePop(nd); }
     });
-    const end = commit => {
-      if (!st) return;
-      const ch = set[st.dir]; st = null; hidePop();
+    const end = (e, commit) => {
+      if (!st || (e && e.pointerId !== st.id)) return;
+      let dir = st.dir;
+      if (e && commit) {
+        const fx = e.clientX - st.x, fy = e.clientY - st.y;
+        dir = flickDir(fx, fy);
+        // 指が戻ってしまった場合は、最も遠くまで動いた方向を採用
+        if (dir === 0 && st.bd >= 24) dir = flickDir(st.bx, st.by);
+      }
+      const ch = set[dir]; st = null; hidePop();
       if (commit && ch) inputKana(ch);
     };
-    b.addEventListener('pointerup', () => end(true));
-    b.addEventListener('pointercancel', () => end(false));
+    b.addEventListener('pointerup', e => end(e, true));
+    b.addEventListener('pointercancel', e => end(e, false));
     return b;
   }
   function showPop(keyEl, set, dir) {
@@ -295,11 +314,11 @@
   function setMode(m) { endComposition(); mode = m; shift = false; symPage = 1; build(); }
 
   /* ---------- 表示・非表示 ---------- */
-  function show() {
+  function show(skipScroll) {
     kb.style.display = 'block';
     document.body.classList.add('kbopen');
     document.documentElement.style.setProperty('--kbh', kbHeight() + 'px');
-    ensureVisible();
+    if (!skipScroll) ensureVisible();
   }
   function hide() {
     endComposition();
@@ -314,7 +333,7 @@
     if (dictState === 'none') loadDict();
     if (el.dataset.kbmode && mode !== el.dataset.kbmode) { mode = el.dataset.kbmode; build(); }
     renderBar(); updateEnterLabel();
-    show();
+    show(target.tagName === 'TEXTAREA');
   }
   function loadDict() {
     dictState = 'loading';
@@ -337,13 +356,17 @@
     build(); renderBar();
 
     kb.addEventListener('pointerdown', () => { touching = true; }, true);
-    document.addEventListener('pointerup', () => setTimeout(() => { touching = false; }, 400), true);
+    ['pointerup', 'pointercancel', 'touchend', 'touchcancel'].forEach(ev => document.addEventListener(ev, () => setTimeout(() => { touching = false; }, 250), true));
     kb.addEventListener('contextmenu', e => e.preventDefault());
 
     document.addEventListener('focusin', e => {
       const el = e.target;
       if (enabled && el.matches && el.matches('[data-kb]') && isTextEl(el)) attach(el);
       else if (kb.style.display !== 'none' && !kb.contains(el) && !(el.closest && el.closest('.modal')) && !(el.matches && el.matches('button,[role=button]'))) hide();
+    });
+    document.addEventListener('click', e => {
+      const el = e.target;
+      if (enabled && el && el.matches && el.matches('[data-kb]') && isTextEl(el) && (target !== el || kb.style.display === 'none')) attach(el);
     });
     document.addEventListener('focusout', e => {
       if (e.target !== target) return;

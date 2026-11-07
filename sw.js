@@ -1,4 +1,4 @@
-const VERSION = 'memo-pwa-v2';
+const VERSION = 'memo-pwa-v3';
 const SHELL = ['./', './index.html', './app.js', './kb.js', './ime.js', './manifest.json',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'];
 const DATA = ['./data/dict.txt', './data/conn.bin'];

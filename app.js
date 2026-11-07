@@ -404,7 +404,11 @@ async function closeEditor() {
   await saveNow();
   cur = null; await loadData(); show('home'); await renderHome();
 }
-function autoGrow() { const t = $('text'); t.style.height = 'auto'; t.style.height = Math.max(160, t.scrollHeight) + 'px'; }
+function autoGrow() {
+  const t = $('text'), sc = t.closest('.scroller'), st = sc.scrollTop;
+  t.style.height = 'auto'; t.style.height = Math.max(160, t.scrollHeight) + 'px';
+  sc.scrollTop = st;                       // 高さを測り直す間に画面が飛ばないよう位置を戻す
+}
 $('title').addEventListener('input', scheduleSave);
 $('text').addEventListener('input', () => { autoGrow(); scheduleSave(); });
 $('title').addEventListener('kbenter', e => { e.preventDefault(); $('text').focus(); });
